@@ -1,16 +1,16 @@
 {
     "staging": {
-        "host": "centerbeam.proxy.rlwy.net",
-        "port": 38848,
+        "host": "gondola.proxy.rlwy.net",
+        "port": 39144,
         "user": "root",
-        "password": "zzVEWMyaxWnpwwvtnabuyPNqKjZyaiKV",
+        "password": "maqUtxJkDuZlpXXSXyIvXaPoMOcAjddv",
         "database": "railway"
     },
     "datawarehouse": {
-        "host": "nozomi.proxy.rlwy.net",
-        "port": 53567,
+        "host": "shinkansen.proxy.rlwy.net",
+        "port": 29701,
         "user": "root",
-        "password": "TYlgqtwybWKefaDUCtXTNVmlxFBkTxfi",
+        "password": "IMRYCEqiQiiVCARSApGyHvNnYYKupjfX",
         "database": "railway"
     }
 }
