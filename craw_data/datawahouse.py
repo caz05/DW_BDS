@@ -203,4 +203,4 @@ with pd.ExcelWriter('DataWarehousenew_BDS.xlsx', engine='xlsxwriter') as writer:
     dim_property_type.to_excel(writer, sheet_name='Dim_PropertyType', index=False)
     fact.to_excel(writer, sheet_name='Fact_Property', index=False)
 
-print("✅ Đã crawl xong và lưu tất cả bảng vào DataWarehouse_BDS.xlsx với nhiều sheet (địa chỉ đã đúng).")
+print("Đã crawl xong và lưu tất cả bảng vào DataWarehouse_BDS.xlsx với nhiều sheet (địa chỉ đã đúng).")
