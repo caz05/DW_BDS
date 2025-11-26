@@ -3,7 +3,7 @@ pandas
 mysql-connector-python
 altair
 openpyxl
-python-dotenv
 beautifulsoup4
 XlsxWriter
+python-dotenv
 

@@ -13,6 +13,17 @@
         "password": "IMRYCEqiQiiVCARSApGyHvNnYYKupjfX",
         "database": "railway"
     },
+<<<<<<< HEAD
+=======
+
+    "datamart": {
+        "host": "mainline.proxy.rlwy.net",
+        "port": 44350,
+        "user": "root",
+        "password": "OqeEGgQBjNODSogpZjaXJqIjijjoDVWR",
+        "database": "railway"
+    },
+>>>>>>> c9295f414a5d15e86bb9a5879363b56df9c0cae8
     "control": {
         "host": "centerbeam.proxy.rlwy.net",
         "port": 33030,

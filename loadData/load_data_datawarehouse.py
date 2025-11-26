@@ -67,7 +67,6 @@ ctl_cursor.execute("""
     LIMIT 1
 """)
 file_item = ctl_cursor.fetchone()
-
 if not file_item:
     print("No file to load DW.")
     exit()
@@ -104,60 +103,9 @@ try:
                 return True
         return False
 
-    # ------------------ DIM PropertyType ------------------
-    def get_property_type_id(dw_cursor, property_type_name):
-        dw_cursor.execute(
-            "SELECT property_type_id FROM PropertyType WHERE type_name=%s",
-            (property_type_name,)
-        )
-        row = dw_cursor.fetchone()
+    # ------------------ ETL LOOP ------------------
+    for row in staging_data:
 
-        if row:
-            return row['property_type_id']
-
-        dw_cursor.execute(
-            "INSERT INTO PropertyType (type_name) VALUES (%s)",
-            (property_type_name,)
-        )
-        return dw_cursor.lastrowid
-
-    # ------------------ DIM Location ------------------
-    def get_location_id(dw_cursor, street, ward, district, city, old_address):
-        dw_cursor.execute("""
-            SELECT location_id FROM Location
-            WHERE street=%s AND ward=%s AND district=%s AND city=%s AND old_address=%s
-        """, (street, ward, district, city, old_address))
-
-        row = dw_cursor.fetchone()
-        if row:
-            return row['location_id']
-
-        dw_cursor.execute("""
-            INSERT INTO Location (street, ward, district, city, old_address)
-            VALUES (%s, %s, %s, %s, %s)
-        """, (street, ward, district, city, old_address))
-        
-        return dw_cursor.lastrowid
-    
-    # ------------------ DIM PostingDate ------------------
-    def get_date_id(dw_cursor, posting_date):
-        dw_cursor.execute(
-            "SELECT date_id FROM PostingDate WHERE posting_date=%s",
-            (posting_date,)
-        )
-        row = dw_cursor.fetchone()
-
-        if row:
-            return row['date_id']
-
-        dw_cursor.execute(
-            "INSERT INTO PostingDate (posting_date) VALUES (%s)",
-            (posting_date,)
-        )
-        return dw_cursor.lastrowid
-    
- # ------------------ FACT PropertyListing (SCD2) ------------------
-    def load_fact_listing(dw_cursor, row, property_type_id, location_id, date_id):
         key = row['key']
         url = row['url']
         create_date = row['create_date'] or datetime.today().date()
@@ -168,68 +116,108 @@ try:
         floors = row['floors']
         description = row['description']
         street_width = row['street_width']
-    
+
+        # ------------------ DIM PropertyType ------------------
+        property_type_name = row['property_type'] or "Unknown"
+
+        dw_cursor.execute("SELECT property_type_id FROM PropertyType WHERE type_name=%s",
+                        (property_type_name,))
+        ptype = dw_cursor.fetchone()
+
+        if ptype:
+            property_type_id = ptype['property_type_id']
+        else:
+            dw_cursor.execute("INSERT INTO PropertyType (type_name) VALUES (%s)",
+                            (property_type_name,))
+            property_type_id = dw_cursor.lastrowid
+
+        # ------------------ DIM Location ------------------
+        street = row['street']
+        ward = row['ward']
+        district = row['district']
+        city = row['city']
+        old_address = row['old_address']
+
         dw_cursor.execute("""
-                    SELECT * FROM PropertyListing
-                    WHERE `key`=%s AND isCurrent=1
-                """, (key,))
+            SELECT location_id FROM Location
+            WHERE street=%s AND ward=%s AND district=%s AND city=%s AND old_address=%s
+        """, (street, ward, district, city, old_address))
+
+        loc = dw_cursor.fetchone()
+
+        location_id = loc['location_id'] if loc else None
+
+        if not location_id:
+            dw_cursor.execute("""
+                INSERT INTO Location (street, ward, district, city, old_address)
+                VALUES (%s, %s, %s, %s, %s)
+            """, (street, ward, district, city, old_address))
+            location_id = dw_cursor.lastrowid
+
+        # ------------------ DIM PostingDate ------------------
+        posting_date = row['posting_date'] or datetime.today().date()
+
+        dw_cursor.execute("SELECT date_id FROM PostingDate WHERE posting_date=%s",
+                        (posting_date,))
+        date = dw_cursor.fetchone()
+
+        date_id = date['date_id'] if date else None
+
+        if not date_id:
+            dw_cursor.execute("INSERT INTO PostingDate (posting_date) VALUES (%s)",
+                            (posting_date,))
+            date_id = dw_cursor.lastrowid
+
+        # ------------------ FACT PropertyListing (SCD2) ------------------
+        dw_cursor.execute("""
+            SELECT * FROM PropertyListing
+            WHERE `key`=%s AND isCurrent=1
+        """, (key,))
         old_record = dw_cursor.fetchone()
 
         new_record = {
-                        "url": url, "name": name, "price": price, "area": area,
-                        "bedrooms": bedrooms, "floors": floors, "description": description,
-                        "street_width": street_width, "property_type_id": property_type_id,
-                        "location_id": location_id, "date_id": date_id
-                    }
+            "url": url, "name": name, "price": price, "area": area,
+            "bedrooms": bedrooms, "floors": floors, "description": description,
+            "street_width": street_width, "property_type_id": property_type_id,
+            "location_id": location_id, "date_id": date_id
+        }
 
-         # TH1: chưa từng xuất hiện
+        # ---------- B1: Nếu không có record cũ → insert mới (TH tin lần đầu xuất hiện) ----------
         if not old_record:
-                        dw_cursor.execute("""
-                            INSERT INTO PropertyListing (
-                                `key`, url, create_date, name, price, area, bedrooms, floors,
-                                description, street_width, property_type_id, location_id,
-                                date_id, startDay, isCurrent
-                            ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,CURDATE(),1)
-                        """, (key, url, create_date, name, price, area, bedrooms, floors,
-                            description, street_width, property_type_id, location_id, date_id))
-                        return
-        #TH2: Nếu có record cũ nhưng dữ liệu KHÔNG đổi -> bỏ qua ----------
+            dw_cursor.execute("""
+                INSERT INTO PropertyListing (
+                    `key`, url, create_date, name, price, area, bedrooms, floors,
+                    description, street_width, property_type_id, location_id,
+                    date_id, startDay, isCurrent
+                ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,CURDATE(),1)
+            """, (key, url, create_date, name, price, area, bedrooms, floors,
+                description, street_width, property_type_id, location_id, date_id))
+            continue
+
+        # ---------- B2: Nếu có record cũ nhưng dữ liệu KHÔNG đổi → bỏ qua ----------
         if not has_changes(old_record, new_record):
-                        print(f"SKIP: No change for key = {key}")
-                        return
+            print(f"SKIP: No change for key = {key}")
+            continue
 
-        #TH3: Nếu dữ liệu thay đổi -> đóng bản cũ + tạo bản mới ----------
-        print(f"UPDATE: Changes detected -> key = {key}")
-
-        dw_cursor.execute("""
-                        UPDATE PropertyListing
-                        SET endDay = CURDATE(), isCurrent = 0
-                        WHERE sk = %s
-                    """, (old_record['sk'],))
+        # ---------- B3: Nếu dữ liệu thay đổi → đóng bản cũ + tạo bản mới ----------
+        print(f"UPDATE: Changes detected → key = {key}")
 
         dw_cursor.execute("""
-                        INSERT INTO PropertyListing (
-                            `key`, url, create_date, name, price, area, bedrooms, floors,
-                            description, street_width, property_type_id, location_id,
-                            date_id, startDay, isCurrent
-                        ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,CURDATE(),1)
-                    """, (key, url, create_date, name, price, area, bedrooms, floors,
-                        description, street_width, property_type_id, location_id, date_id))
+            UPDATE PropertyListing
+            SET endDay = CURDATE(), isCurrent = 0
+            WHERE sk = %s
+        """, (old_record['sk'],))
 
+        dw_cursor.execute("""
+            INSERT INTO PropertyListing (
+                `key`, url, create_date, name, price, area, bedrooms, floors,
+                description, street_width, property_type_id, location_id,
+                date_id, startDay, isCurrent
+            ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,CURDATE(),1)
+        """, (key, url, create_date, name, price, area, bedrooms, floors,
+            description, street_width, property_type_id, location_id, date_id))
 
-    # ------------------ ETL LOOP ------------------
-    for row in staging_data:
-
-        property_type_id = get_property_type_id(dw_cursor, row['property_type'] or "Unknown")
-        location_id = get_location_id(
-            dw_cursor, row['street'], row['ward'], row['district'], row['city'], row['old_address']
-        )
-        posting_date = row['posting_date'] or datetime.today().date()
-        date_id = get_date_id(dw_cursor, posting_date)
-
-        load_fact_listing(dw_cursor, row, property_type_id, location_id, date_id) 
-        
-
+    # ------------------ Commit ------------------
     dw_conn.commit()
     dw_cursor.close()
     dw_conn.close()
@@ -242,16 +230,10 @@ try:
 
 except Exception as e:
     print("DW Load FAILED:", str(e))
-
-    try:
-        ctl_conn.ping(reconnect=True, attempts=3, delay=2)
-    except:
-        pass
     update_file_status(file_id, "LF")
     fail_process(process_id, str(e))
 
-    send_error_email(f"DW Load failed for file_id {file_id}: {e}")
+finally:
+    ctl_cursor.close()
+    ctl_conn.close()
 
-if ctl_conn.is_connected():
-        ctl_cursor.close()
-        ctl_conn.close()

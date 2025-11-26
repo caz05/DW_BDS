@@ -11,6 +11,7 @@ conn = mysql.connector.connect(**control_config)
 cursor = conn.cursor()
 
 # DROP TABLE nếu đã tồn tại
+
 cursor.execute("DROP TABLE IF EXISTS process_log;")
 cursor.execute("DROP TABLE IF EXISTS file_log;")
 conn.commit()

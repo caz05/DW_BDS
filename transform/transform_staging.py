@@ -19,43 +19,62 @@ with open("config/config.json", "r", encoding="utf-8") as f:
 staging_config = cfg["staging"]
 control_config = cfg["control"]
 
-# ------------------ CONNECT CONTROL DB ------------------
-control_conn = mysql.connector.connect(**control_config)
-control_cursor = control_conn.cursor(dictionary=True)
-
-
 #Hàm ghi log vào bảng process_log và file_log
-def start_process_log(cursor, process_name, file_id):
+def start_process_log(process_name, file_id):
+    """Insert log bắt đầu (PS)"""
+    conn = mysql.connector.connect(**control_config)
+    cursor = conn.cursor()
     sql = """
         INSERT INTO process_log (file_id, process_name, status, started_at)
         VALUES (%s, %s, 'PS', NOW())
     """
     cursor.execute(sql, (file_id, process_name))
-    return cursor.lastrowid
+    conn.commit()
+    process_id = cursor.lastrowid
+    cursor.close()
+    conn.close()
+    return process_id
 
 
-def success_process_log(cursor, process_id):
+def success_process_log(process_id):
+    """Cập nhật SC"""
+    conn = mysql.connector.connect(**control_config)
+    cursor = conn.cursor()
     cursor.execute("""
         UPDATE process_log 
         SET status='SC', updated_at=NOW()
         WHERE process_id=%s
     """, (process_id,))
+    conn.commit()
+    cursor.close()
+    conn.close()
 
-def failed_process_log(cursor, process_id, error_msg):
+
+def failed_process_log(process_id, error_msg):
+    """Cập nhật FL"""
+    conn = mysql.connector.connect(**control_config)
+    cursor = conn.cursor()
     cursor.execute("""
         UPDATE process_log 
-        SET status='FL', error_msg=%s, updated_at=NOW()
+        SET status='FL', updated_at=NOW()
         WHERE process_id=%s
-    """,  (error_msg, process_id))
+    """, (process_id,))
+    conn.commit()
+    cursor.close()
+    conn.close()
 
 
-def update_file_log_status(cursor, file_id, status):
+def update_file_log_status(file_id, status):
+    conn = mysql.connector.connect(**control_config)
+    cursor = conn.cursor()
     cursor.execute("""
         UPDATE file_log
         SET status=%s, updated_at=NOW()
         WHERE file_id=%s
     """, (status, file_id))
-
+    conn.commit()
+    cursor.close()
+    conn.close()
 # ------------------ Hàm chuẩn hóa ------------------
 def parse_price(price_str):
     if not price_str:
@@ -92,30 +111,34 @@ def parse_int_from_str(value_str):
 
 # ------------------ RUN TRANSFORM ------------------
 # 
-def get_transform_file(cursor):
+def get_transform_file():
+    conn = mysql.connector.connect(**control_config)
+    cursor = conn.cursor(dictionary=True)
+
     cursor.execute("""
         SELECT * FROM file_log 
         WHERE status IN ('ST', 'TF')
         ORDER BY file_id ASC
         LIMIT 1;
     """)
-    return cursor.fetchone()
+
+    row = cursor.fetchone()
+    cursor.close()
+    conn.close()
+    return row
 
 
-file_info = get_transform_file(control_cursor)
+file_info = get_transform_file()
 
 if not file_info:
     print("Không có file nào cần transform (ST/TF).")
-    control_cursor.close()
-    control_conn.close()
     exit()
 
 file_id = file_info["file_id"]
 print(f"Transforming file_id = {file_id}")
 
 # Ghi log bắt đầu
-process_id = start_process_log(control_cursor, "Transform Data", file_id)
-control_conn.commit()
+process_id = start_process_log("Transform Data", file_id)
 
 try:
     # Thực hiện transform
@@ -163,22 +186,21 @@ try:
             row["posting_date"]
         ))
         count += 1
-
-# ====== LOG SUCCESS ======
-    update_file_log_status(control_cursor,file_id, "TR")
-    success_process_log(control_cursor,process_id)
-    control_conn.commit()
-
     conn.commit()
     cursor.close()
     conn.close()
 
     print(f"Transform completed → {count} rows inserted into Property")
 
+
+# ====== LOG SUCCESS ======
+    update_file_log_status(file_id, "TR")
+    success_process_log(process_id)
+
 except Exception as e:
     print("Transform Failed:", e)
 
     # ====== LOG FAILED ======
-    update_file_log_status(control_cursor, file_id, "TF")
-    failed_process_log(control_cursor, process_id, str(e))
-    control_conn.commit()   
+    update_file_log_status(file_id, "TF")
+    failed_process_log(process_id, str(e))    
+
