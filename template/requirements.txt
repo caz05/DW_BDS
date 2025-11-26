@@ -6,4 +6,4 @@ openpyxl
 python-dotenv
 beautifulsoup4
 XlsxWriter
-python-dotenv
+

@@ -211,12 +211,12 @@ try:
         # Kiểm tra xem file này hôm nay đã ghi log chưa?
     check_sql = "SELECT file_id FROM file_log WHERE file_path = %s"
     cursor.execute(check_sql, (normalized_path,))
-    existing_log = cursor.fetchone()
+    existing_log = cursor.fetchall()
 
 
     if existing_log:
             # --- TRƯỜNG HỢP UPDATE (Nếu đã chạy rồi, cập nhật lại số dòng và status) ---
-            file_id = existing_log[0]
+            file_id = existing_log[0][0]
             update_sql = """
                 UPDATE file_log 
                 SET row_count = %s, status = 'ER', updated_at = NOW(), author = 'System'
@@ -233,6 +233,7 @@ try:
                 VALUES (%s, %s, %s, 'ER', 'System', NOW(), NOW())
             """
             cursor.execute(insert_sql, (normalized_path, current_date, row_count))
+            file_id = cursor.lastrowid
             print(f"Đã tạo mới log trong file_log với trạng thái ER.")
 
     conn.commit()
