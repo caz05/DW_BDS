@@ -98,6 +98,7 @@ with st.sidebar:
     st.caption("Hệ thống giám sát & ETL Local")
     st.markdown("---")
 
+    # today = date(2025, 11, 25)
     today = date.today()
     st.markdown(f"### Date: **{today.strftime('%d/%m/%Y')}**") 
 
@@ -162,11 +163,16 @@ if menu == "ETL Pipeline":
         if st.button("7. Load vào Data Mart", use_container_width=True):
             run_etl_script("loadData/load_data_mart.py", "Load to Data Mart")
 
-# ------------------- TAB: DASHBOARD -------------------
-elif menu == "Dashboard":
+# ------------------- CHỌN NGÀY CHUNG -------------------
+st.markdown("### Chọn ngày để hiển thị dữ liệu")
+selected_date = st.date_input("Chọn ngày:", value=pd.to_datetime(today))
+selected_dt = pd.to_datetime(selected_date).normalize()
+
+# =================== TAB: DASHBOARD ===================
+if menu == "Dashboard":
     st.markdown("### Thống kê Bất động sản")
     if not has_db_data:
-        st.warning(f"Chưa có dữ liệu Data Mart hôm nay ({today}). Biểu đồ có thể trống.")
+        st.warning(f"Chưa có dữ liệu Data Mart hôm nay ({selected_date}). Biểu đồ có thể trống.")
         
     col_metrics, col_padding = st.columns([2, 1])
     with col_metrics:
@@ -187,16 +193,16 @@ elif menu == "Dashboard":
             GROUP BY l.district
             ORDER BY avg_price DESC;
         """
-        df = query_dm(sql, params=(today,))
+        df = query_dm(sql, params=(selected_dt,))
         if not df.empty:
             chart = alt.Chart(df).mark_bar(color='#4c78a8').encode(
                 x=alt.X("district:N", title="Quận", sort="-y"),
                 y=alt.Y("avg_price:Q", title="Giá TB (VNĐ)"),
                 tooltip=["district", alt.Tooltip("avg_price", format=",.0f")]
-            ).properties(title=f"Giá BĐS trung bình (Dữ liệu: {today})")
+            ).properties(title=f"Giá BĐS trung bình ({selected_date})")
             st.altair_chart(chart, use_container_width=True)
         else:
-            st.warning("Hôm nay chưa có dữ liệu về Giá.")
+            st.warning("Chưa có dữ liệu về Giá.")
 
     elif metric_choice == "Số lượng bài đăng theo Quận":
         sql = """
@@ -208,13 +214,13 @@ elif menu == "Dashboard":
             GROUP BY l.district
             ORDER BY cnt DESC;
         """
-        df = query_dm(sql, params=(today,))
+        df = query_dm(sql, params=(selected_dt,))
         if not df.empty:
             chart = alt.Chart(df).mark_bar(color='#f58518').encode(
                 x=alt.X("district:N", title="Quận", sort="-y"),
                 y=alt.Y("cnt:Q", title="Số lượng tin"),
                 tooltip=["district", "cnt"]
-            ).properties(title=f"Số lượng tin đăng mới ({today})")
+            ).properties(title=f"Số lượng tin đăng ({selected_date})")
             st.altair_chart(chart, use_container_width=True)
 
     elif metric_choice == "Diện tích trung bình theo Quận":
@@ -227,19 +233,19 @@ elif menu == "Dashboard":
             GROUP BY l.district
             ORDER BY avg_area DESC;
         """
-        df = query_dm(sql, params=(today,))
+        df = query_dm(sql, params=(selected_dt,))
         if not df.empty:
             chart = alt.Chart(df).mark_line(point=True, color='#e45756').encode(
                 x=alt.X("district:N", title="Quận", sort="-y"),
                 y=alt.Y("avg_area:Q", title="Diện tích TB (m2)"),
                 tooltip=["district", alt.Tooltip("avg_area", format=".1f")]
-            )
+            ).properties(title=f"Diện tích trung bình ({selected_date})")
             st.altair_chart(chart, use_container_width=True)
 
-# ------------------- TAB: DATA MARTS -------------------
+# =================== TAB: DATA MARTS ===================
 elif menu == "Data Marts":
     if not has_db_data:
-        st.warning("Database Data Mart chưa có dữ liệu hôm nay. Một số phân tích có thể trống.")
+        st.warning(f"Database Data Mart chưa có dữ liệu ngày {selected_date}. Một số phân tích có thể trống.")
 
     st.divider()
     col_left, col_right = st.columns(2)
@@ -258,7 +264,7 @@ elif menu == "Data Marts":
               AND f.area > 0 AND f.price > 0
             LIMIT 500;
         """
-        df_scatter = query_dm(sql_scatter, params=(today,))
+        df_scatter = query_dm(sql_scatter, params=(selected_dt,))
         if not df_scatter.empty:
             chart_scatter = alt.Chart(df_scatter).mark_circle(size=60).encode(
                 x=alt.X('area:Q', title='Diện tích (m2)', scale=alt.Scale(zero=False)),
@@ -282,7 +288,7 @@ elif menu == "Data Marts":
             GROUP BY pt.type_name
             ORDER BY total_count DESC;
         """
-        df_type = query_dm(sql_type, params=(today,))
+        df_type = query_dm(sql_type, params=(selected_dt,))
         if not df_type.empty:
             chart_pie = alt.Chart(df_type).mark_arc(innerRadius=50).encode(
                 theta=alt.Theta(field="total_count", type="quantitative"),
@@ -296,7 +302,7 @@ elif menu == "Data Marts":
     st.divider()
 
     # 3. Top Quận đơn giá cao nhất
-    st.markdown("#### 3. Top Quận có Đơn giá cao nhất hôm nay (VNĐ/m²)")
+    st.markdown(f"#### 3. Top Quận có Đơn giá cao nhất ({selected_date})")
     sql_unit_price = """
         SELECT l.district, AVG(f.price / f.area) AS price_per_m2
         FROM FactProperty_DM f
@@ -307,7 +313,7 @@ elif menu == "Data Marts":
         ORDER BY price_per_m2 DESC
         LIMIT 15;
     """
-    df_unit = query_dm(sql_unit_price, params=(today,))
+    df_unit = query_dm(sql_unit_price, params=(selected_dt,))
     if not df_unit.empty:
         chart_unit = alt.Chart(df_unit).mark_bar(color='#8E44AD').encode(
             x=alt.X('district:N', sort='-y', title='Quận'),
@@ -316,26 +322,40 @@ elif menu == "Data Marts":
         )
         st.altair_chart(chart_unit, use_container_width=True)
     else:
-        st.warning("Chưa tính được đơn giá hôm nay.")
+        st.warning("Chưa tính được đơn giá ngày này.")
 
     # 4. Xu hướng thị trường (lịch sử)
     st.markdown("---")
     st.markdown("#### 4. Bối cảnh: Xu hướng thị trường (Lịch sử)")
+
+    # Lấy dữ liệu trung bình giá 30 ngày gần nhất
     sql_trend = """
         SELECT d.posting_date, AVG(f.price) AS avg_price
         FROM FactProperty_DM f
         JOIN DimPostingDate_DM d ON f.date_id = d.date_id
         GROUP BY d.posting_date
-        ORDER BY d.posting_date ASC;
+        ORDER BY d.posting_date DESC
+        LIMIT 30;
     """
     df_trend = query_dm(sql_trend)
     if not df_trend.empty:
+        df_trend['posting_date'] = pd.to_datetime(df_trend['posting_date']).dt.normalize()
+        df_trend = df_trend.sort_values('posting_date')
+        df_selected = df_trend[df_trend['posting_date'] == selected_dt]
+
+        # Vẽ line chart
         base = alt.Chart(df_trend).encode(x=alt.X('posting_date:T', title='Ngày'))
-        line = base.mark_line(color='gray').encode(y=alt.Y('avg_price:Q', title='Giá TB'))
-        df_today_trend = df_trend[df_trend['posting_date'].astype(str) == str(today)]
-        points = alt.Chart(df_today_trend).mark_point(color='red', size=200, filled=True).encode(
+        line = base.mark_line(color='gray').encode(y=alt.Y('avg_price:Q', title='Giá TB (VNĐ)'))
+
+        # Highlight ngày chọn
+        points = alt.Chart(df_selected).mark_point(color='red', size=200, filled=True).encode(
             x='posting_date:T',
             y='avg_price:Q',
-            tooltip=['posting_date', 'avg_price']
+            tooltip=[alt.Tooltip('posting_date:T', title='Ngày'), alt.Tooltip('avg_price:Q', title='Giá TB')]
         )
+
         st.altair_chart(line + points, use_container_width=True)
+    else:
+        st.info("Chưa có dữ liệu để vẽ biểu đồ xu hướng lịch sử.")
+
+
