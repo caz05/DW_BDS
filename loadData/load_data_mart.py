@@ -191,7 +191,7 @@ except Exception as e:
     # --- XỬ LÝ LỖI (GHI LOG FL + GỬI MAIL) ---
     print(f"LỖI FATAL: {e}")
     
-    # 1. Ghi log thất bại vào DB Control
+    # Ghi log thất bại vào DB Control
     if ctrl_conn and ctrl_conn.is_connected() and process_id:
         try:
             ctrl_cur.execute("""
@@ -204,14 +204,13 @@ except Exception as e:
         except Exception as db_err:
             print(f"Không thể ghi log lỗi vào DB: {db_err}")   
 
-    # 2. Gửi email báo lỗi
+    # Gửi email báo lỗi
     try:
         send_error_email("LOAD DATA MART ERROR", f"Chi tiết lỗi:\n{str(e)}")
         print("Đã gửi email báo lỗi.")
     except Exception as mail_err:
         print(f"Không thể gửi email: {mail_err}")
 
-    # Re-raise để GitHub Actions biết là job này fail
     raise e             
 # -------------------------
 # Close connections

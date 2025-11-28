@@ -1,6 +1,6 @@
 # Chặn file chứa mật khẩu
 .env
-
+config/config.json
 # Chặn file rác của Python 
 __pycache__/
 *.pyc

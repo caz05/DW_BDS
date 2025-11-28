@@ -1,0 +1,58 @@
+name: Daily ETL Pipeline
+
+on:
+  schedule:
+    # 6:00 PM giờ VN = 11:00 AM giờ UTC
+    # Cron chạy theo giờ UTC (VN là UTC+7)
+    - cron: '0 11 * * *'
+  # Cho phép bấm nút chạy thủ công để test
+  workflow_dispatch:
+
+jobs:
+  run-etl:
+    runs-on: ubuntu-latest
+    
+    # Nạp biến môi trường từ Secrets vào máy ảo
+    env:
+      TIDB_HOST: ${{ secrets.TIDB_HOST }}
+      TIDB_PORT: ${{ secrets.TIDB_PORT }}
+      TIDB_USER: ${{ secrets.TIDB_USER }}
+      TIDB_PASSWORD: ${{ secrets.TIDB_PASSWORD }}
+      EMAIL_USER: ${{ secrets.EMAIL_USER }}
+      EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+      # Tên DB
+      DB_NAME_CONTROL: estate_control
+      DB_NAME_STAGING: estate_stagging
+      DB_NAME_DW: estate_dw
+      DB_NAME_MART: estate_mart
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Install dependencies
+        run: |
+          pip install -r .template/requirements.txt
+
+      # --- CHẠY TUẦN TỰ CÁC FILE ---
+      # Lưu ý: Sửa đúng đường dẫn file nếu file nằm trong thư mục con
+      
+      - name: 1. Crawl Data (Stagging)
+        run: python craw_data/stagging.py
+
+      - name: 2. Load to Staging DB
+        run: python loadData/load_data_stagging.py
+
+      - name: 3. Transform Data
+        run: python transform/transform_staging.py
+
+      - name: 4. Load Data Warehouse
+        run: python loadData/load_data_datawarehouse.py
+        
+      - name: 5. Load Data Mart
+        run: python loadData/load_data_mart.py
