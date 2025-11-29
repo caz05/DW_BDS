@@ -7,7 +7,7 @@ import pandas as pd
 import mysql.connector
 import altair as alt
 import json
-import os
+import os,sys
 from dotenv import load_dotenv
 
 #Load biến môi trường trước
