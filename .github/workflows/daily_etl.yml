@@ -37,7 +37,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install -r template/requirements.txt
+          pip install -r requirements.txt
 
       # --- CHẠY TUẦN TỰ CÁC FILE ---
       # Lưu ý: Sửa đúng đường dẫn file nếu file nằm trong thư mục con
