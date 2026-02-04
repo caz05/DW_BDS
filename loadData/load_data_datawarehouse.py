@@ -72,8 +72,8 @@ def update_file_status(file_id, status):
 #3. Kiểm tra record trong control.file_log có status 'TR' / 'LF'    
 ctl_cursor.execute("""
     SELECT * FROM file_log 
-    WHERE status IN ('TR','LF') 
-    ORDER BY file_id ASC
+    WHERE status = 'TR' -- Chỉ lấy file đã Transform thành công
+    ORDER BY file_id DESC
     LIMIT 1
 """)
 file_item = ctl_cursor.fetchone()

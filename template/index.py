@@ -52,7 +52,7 @@ def query_dm(sql, params=None):
         return pd.DataFrame()
 
 
-# Helper function để chạy script Python và hiện log
+# function để chạy script Python và hiện log
 def run_etl_script(script_path, description):
     with st.spinner(f"Đang chạy: {description}..."):
         try:
@@ -85,7 +85,7 @@ def run_etl_script(script_path, description):
             st.error(f"Lỗi hệ thống: {e}")
             send_error_email(script_path, str(e)) #gửi mail
 
-# ---------------- Helper: Kiểm tra file crawl ----------------
+# ---------------- Kiểm tra file crawl ----------------
 def check_crawled_file_exists(today_date):
     patterns = [
         f"*{today_date.strftime('%Y-%m-%d')}*",

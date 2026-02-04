@@ -33,14 +33,14 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.9'
+          python-version: '3.12'
 
       - name: Install dependencies
         run: |
-          pip install -r .template/requirements.txt
+          pip install -r requirements.txt
 
       # --- CHẠY TUẦN TỰ CÁC FILE ---
-      # Lưu ý: Sửa đúng đường dẫn file nếu file nằm trong thư mục con
+      # đúng đường dẫn file nếu file nằm trong thư mục con
       
       - name: 1. Crawl Data (Stagging)
         run: python craw_data/stagging.py

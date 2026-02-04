@@ -24,7 +24,7 @@ def send_error_email(script_name, error_log):
     {error_log}
     --------------------------------------------------
     
-    Vui lòng kiểm tra ngay trên Railway hoặc Dashboard.
+    Vui lòng kiểm tra ngay.
     """
 
     msg = MIMEText(body)

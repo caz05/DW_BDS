@@ -119,7 +119,7 @@ def crawl_page(page_num):
         at = area.find("span", itemprop="value") if area else None
         p["DT"] = f"{at.get_text(strip=True)} m²" if at else "N/A"
 
-        # ✅ Lấy đúng class 'old-address'
+        # Lấy đúng class 'old-address'
         address = item.find("p", class_="old-address")
         if address:
             parts = [x.get_text(strip=True) for x in address.find_all("span") if x.get_text(strip=True)]

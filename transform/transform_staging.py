@@ -116,8 +116,8 @@ def get_transform_file():
   
     control_cursor.execute("""
         SELECT * FROM file_log 
-        WHERE status IN ('ST', 'TF')
-        ORDER BY file_id ASC
+        WHERE status ='ST'
+        ORDER BY file_id DESC
         LIMIT 1;
     """)
 
