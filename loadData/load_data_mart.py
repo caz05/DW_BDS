@@ -25,7 +25,10 @@ except ImportError as e:
     sys.exit(1)
 
 # Giờ Việt Nam
-VN_TZ = ZoneInfo("Asia/Ho_Chi_Minh")    
+VN_TZ = ZoneInfo("Asia/Ho_Chi_Minh")   
+now_vn = datetime.now(VN_TZ)
+today_vn = datetime.now(VN_TZ).date()
+
 # -------------------------
 # Load DB config
 # -------------------------
@@ -43,7 +46,7 @@ def success_process(process_id):
         UPDATE process_log
         SET status='SC', updated_at=NOW()
         WHERE process_id=%s
-    """, (process_id,))
+    """, (now_vn, process_id))
     conn.commit()
     cur.close()
     conn.close()
@@ -56,7 +59,7 @@ def fail_process(process_id, msg):
         UPDATE process_log
         SET status='FL', updated_at=NOW(), error_message=%s
         WHERE process_id=%s
-    """, (msg, process_id))
+    """, (now_vn, msg, process_id))
     conn.commit()
     cur.close()
     conn.close()
@@ -98,11 +101,11 @@ try:
         SELECT file_id 
         FROM file_log 
         WHERE status = 'OK' 
-        AND DATE(created_at) = CURDATE() 
+        AND DATE(created_at) = %s 
         ORDER BY file_id DESC -- Lấy file mới nhất nếu có nhiều file
         LIMIT 1
     """
-    ctrl_cur.execute(check_file_sql)
+    ctrl_cur.execute(check_file_sql, (today_vn,))
     file_row = ctrl_cur.fetchone()
 
     if not file_row:
@@ -116,8 +119,8 @@ try:
     # --- GHI LOG BẮT ĐẦU (PS - Processing) ---
     ctrl_cur.execute("""
         INSERT INTO process_log (process_name, status, file_id, started_at, updated_at)
-        VALUES ('Load Data Mart', 'PS', NULL, NOW(), NOW())
-    """)
+        VALUES (%s, %s, %s, %s, %s)
+        """, ('Load Data Mart', 'PS', file_id, now_vn, now_vn))
     process_id = ctrl_cur.lastrowid
     ctrl_conn.commit()
 
