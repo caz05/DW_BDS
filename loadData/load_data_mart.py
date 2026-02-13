@@ -57,7 +57,7 @@ def fail_process(process_id, msg):
     cur = conn.cursor()
     cur.execute("""
         UPDATE process_log
-        SET status='FL', updated_at=NOW(), error_message=%s
+        SET status='FL', updated_at=%s, error_message=%s
         WHERE process_id=%s
     """, (now_vn, msg, process_id))
     conn.commit()
@@ -83,7 +83,7 @@ try:
     dw_conn = mysql.connector.connect(**dw_cfg,
                                         connection_timeout=600,
                                         autocommit=False)
-    dw_cur = dw_conn.cursor(dictionary=True)
+    dw_cur = dw_conn.cursor(dictionary=True, buffered=True)
 
     # 3. Data Mart (Đích)
     dm_cfg = cfg["datamart"]
