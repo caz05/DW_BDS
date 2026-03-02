@@ -44,7 +44,7 @@ def success_process(process_id):
     cur = conn.cursor()
     cur.execute("""
         UPDATE process_log
-        SET status='SC', updated_at=NOW()
+        SET status='SC', updated_at=%s
         WHERE process_id=%s
     """, (now_vn, process_id))
     conn.commit()
@@ -52,14 +52,14 @@ def success_process(process_id):
     conn.close()
 
 
-def fail_process(process_id, msg):
+def fail_process(process_id):
     conn = mysql.connector.connect(**cfg["control"])
     cur = conn.cursor()
     cur.execute("""
         UPDATE process_log
-        SET status='FL', updated_at=%s, error_message=%s
+        SET status='FL', updated_at=%s
         WHERE process_id=%s
-    """, (now_vn, msg, process_id))
+    """, (now_vn,  process_id))
     conn.commit()
     cur.close()
     conn.close()
@@ -83,7 +83,7 @@ try:
     dw_conn = mysql.connector.connect(**dw_cfg,
                                         connection_timeout=600,
                                         autocommit=False)
-    dw_cur = dw_conn.cursor(dictionary=True, buffered=True)
+    dw_cur = dw_conn.cursor(dictionary=True)
 
     # 3. Data Mart (Đích)
     dm_cfg = cfg["datamart"]
@@ -176,6 +176,7 @@ try:
     # Fetch current listings from DW
     # -------------------------
     print("Đang lấy dữ liệu từ DW...")
+    dw_conn.ping(reconnect=True)
     dw_cur.execute("""
         SELECT p.sk, p.`key` AS listing_key, p.url, p.name, pt.type_name AS property_type,
             p.price, p.area, l.old_address, l.street, l.ward, l.district, l.city,
@@ -263,6 +264,7 @@ try:
     #    print(f"Inserted batch {i} to {i+len(batch)}")
         # 3. Insert 1000 dòng này vào Data Mart ngay lập tức
         if batch_values:
+            dm_conn.ping(reconnect=True)
             dm_cur.executemany(insert_fact_sql, batch_values)
             dm_conn.commit() # Lưu ngay, giải phóng Transaction Log
             
@@ -282,7 +284,7 @@ except Exception as e:
     # --- XỬ LÝ LỖI (GHI LOG FL + GỬI MAIL) ---
     print(f"LỖI FATAL: {e}")
     
-    fail_process(process_id, str(e))
+    fail_process(process_id)
     # Gửi email báo lỗi
     try:
         send_error_email("LOAD DATA MART ERROR", f"Chi tiết lỗi:\n{str(e)}")
