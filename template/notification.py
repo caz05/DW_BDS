@@ -7,8 +7,8 @@ def send_error_email(script_name, error_log):
     """
     Hàm gửi email cảnh báo lỗi
     """
-    SENDER_EMAIL = os.getenv("MAIL_USER")
-    SENDER_PASSWORD = os.getenv("MAIL_PASS")
+    SENDER_EMAIL = os.getenv("EMAIL_USER")
+    SENDER_PASSWORD = os.getenv("EMAIL_PASSWORD")
     RECEIVER_EMAIL = os.getenv("MAIL_RECEIVER", "")
  # list danh sách email
 
